@@ -6,8 +6,7 @@ nextflow.enable.dsl=2
 params.input        = "$projectDir/data"
 params.pattern      = "*_R{1,2}*.fastq.gz"
 params.output       = "$projectDir/results"
-params.kneaddata_db = null   // path to KneadData reference DB (e.g. human genome)
-params.metaphlan_db = null   // path to MetaPhlAn bowtie2 database
+params.kneaddata_db = "/scratch/user/jonathanturck/03_resources/dog_host/dog" // update location
 params.batch        = 0      // number of sample pairs to process (0 = all)
 
 // IMPORT MODULES
