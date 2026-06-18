@@ -22,10 +22,21 @@ module load WebProxy
 BATCH_SIZE=0
 INPUT_DIR="$(pwd)/data"
 OUTPUT_DIR="$(pwd)/results"
+MODE="default"
+RCLR_MIN_PREVALENCE=0
+RCLR_MIN_TOTAL_COUNT=0
 
 usage() {
     echo "Usage: sbatch initiate_pipe.sh [--batch N] [--indir DIR] [--outdir DIR]"
+    echo "       [--mode default|sensitive|both]"
+    echo "       [--rclr_min_prevalence FLOAT] [--rclr_min_total_count INT]"
+    echo ""
     echo "Defaults: --batch 0 --indir $(pwd)/data --outdir $(pwd)/results"
+    echo "          --mode default --rclr_min_prevalence 0 --rclr_min_total_count 0"
+    echo ""
+    echo "  --mode default   : MetaPhlAn --bt2_ps very-sensitive"
+    echo "  --mode sensitive : MetaPhlAn --bt2_ps very-sensitive-local"
+    echo "  --mode both      : run both (results in default/ and sensitive/ subdirs)"
 }
 
 while [[ $# -gt 0 ]]; do
@@ -43,6 +54,21 @@ while [[ $# -gt 0 ]]; do
         --outdir)
             [[ -n "${2:-}" ]] || { echo "Missing value for --outdir"; usage; exit 1; }
             OUTPUT_DIR="$2"
+            shift 2
+            ;;
+        --mode)
+            [[ -n "${2:-}" ]] || { echo "Missing value for --mode"; usage; exit 1; }
+            MODE="$2"
+            shift 2
+            ;;
+        --rclr_min_prevalence)
+            [[ -n "${2:-}" ]] || { echo "Missing value for --rclr_min_prevalence"; usage; exit 1; }
+            RCLR_MIN_PREVALENCE="$2"
+            shift 2
+            ;;
+        --rclr_min_total_count)
+            [[ -n "${2:-}" ]] || { echo "Missing value for --rclr_min_total_count"; usage; exit 1; }
+            RCLR_MIN_TOTAL_COUNT="$2"
             shift 2
             ;;
         -h|--help)
@@ -63,4 +89,7 @@ nextflow run "biobakery-nf/main.nf" \
     -resume \
     --batch ${BATCH_SIZE} \
     --input "${INPUT_DIR}" \
-    --output "${OUTPUT_DIR}"
+    --output "${OUTPUT_DIR}" \
+    --mode "${MODE}" \
+    --rclr_min_prevalence ${RCLR_MIN_PREVALENCE} \
+    --rclr_min_total_count ${RCLR_MIN_TOTAL_COUNT}

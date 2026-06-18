@@ -10,10 +10,12 @@ params.kneaddata_db = "/scratch/user/jonathanturck/03_resources/dog_host/dog" //
 params.batch        = 0      // number of sample pairs to process (0 = all)
 
 // IMPORT MODULES
-include { FASTP     } from './modules/fastp.nf'
-include { KNEADDATA } from './modules/kneaddata.nf'
-include { CAT       } from './modules/cat.nf'
-include { METAPHLAN } from './modules/metaphlan.nf'
+include { FASTP          } from './modules/fastp.nf'
+include { KNEADDATA      } from './modules/kneaddata.nf'
+include { CAT            } from './modules/cat.nf'
+include { METAPHLAN      } from './modules/metaphlan.nf'
+include { MERGE_PROFILES } from './modules/merge_profiles.nf'
+include { BUILD_COUNT_TABLE } from './modules/build_count_table.nf'
 
 // WORKFLOW
 workflow {
@@ -43,5 +45,38 @@ workflow {
 
     // Step 4 – Taxonomic profiling
     METAPHLAN(CAT.out.reads)
+
+    // ── Count-table tail ──
+    // The count table is built across all samples at once: collect every per-sample
+    // profile into one task. Each tuple carries (profiles, subdir); the subdir threads
+    // through every process so each sensitivity run publishes to its own results folder.
+    // In 'sensitive' mode the single run uses very-sensitive-local, so it lands in sensitive/.
+    primary_subdir = ( params.mode == 'sensitive' ) ? 'sensitive' : 'default'
+    default_ch = METAPHLAN.out.profile
+        .map { _id, tsv -> tsv }
+        .collect()
+        .map { tuple(it, primary_subdir) }
+
+    // In 'both' mode, add the very-sensitive-local profiles as a second item in the channel.
+    if ( params.mode == 'both' ) {
+        sensitive_ch = METAPHLAN.out.profile_sensitive
+            .map { _id, tsv -> tsv }
+            .collect()
+            .map { tuple(it, 'sensitive') }
+        merge_in = default_ch.mix(sensitive_ch)
+    } else {
+        merge_in = default_ch
+    }
+
+    // MERGE_PROFILES emits a standard merged relative-abundance table for inspection.
+    // BUILD_COUNT_TABLE reads the per-sample profiles directly (not the merged file):
+    // some merge_metaphlan_tables.py builds drop the read-stats columns, and the
+    // estimated_number_of_reads_from_the_clade values we need live only in the
+    // per-sample profiles.
+    MERGE_PROFILES(merge_in)
+    BUILD_COUNT_TABLE(merge_in)
+
+    // Gemelli rCLR / RPCA is not run here. The count table (counts.tsv) is the only
+    // input Gemelli needs, so it can be run separately/downstream from that file.
 }
 
